@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실시간 클린 채팅</title>
+<style>
+    body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .chat-container { width: 100%; max-width: 400px; height: 600px; background-color: #ffffff; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+    .chat-header { background-color: #ffffff; padding: 15px; text-align: center; font-weight: bold; color: #333; border-bottom: 1px solid #eaeaea; }
+    .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background-color: #fafafa; }
+    .message { max-width: 75%; padding: 10px 15px; border-radius: 18px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+    
+    /* 내 메시지와 타인 메시지 스타일 구분 */
+    .my-message { background-color: #e3f2fd; color: #000; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .other-message { background-color: #fff; color: #333; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid #eaeaea; }
+    
+    .input-area { display: flex; padding: 15px; background-color: #ffffff; border-top: 1px solid #eaeaea; }
+    .input-area input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 14px; }
+    .input-area button { margin-left: 10px; padding: 10px 20px; border: none; background-color: #333; color: #fff; border-radius: 20px; cursor: pointer; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">실시간 클린 채팅방</div>
+    <div class="chat-box" id="chatBox"></div>
+    <div class="input-area">
+        <input type="text" id="messageInput" placeholder="메시지를 입력하세요..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">전송</button>
+    </div>
+</div>
+
+<script>
+    // 나와 타인을 구분하기 위한 임의의 ID 생성
+    const myId = Math.random().toString(36).substring(2, 9);
+    const badWords = ['T발놈', '씹프피', '씹fp', '씹FP', '감정충 F', 't발놈', '시발놈'];
+    
+    // 파이썬 웹소켓 서버에 연결 (내 컴퓨터)
+    const ws = new WebSocket("wss://preplan-uproot-suspend.ngrok-free.dev ");
+
+    // 서버로부터 메시지를 받을 때 실행되는 로직
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        let text = data.text;
+
+        // 1. 욕설 필터링
+        badWords.forEach(word => {
+            const regex = new RegExp(word, 'g');
+            text = text.replace(regex, '***');
+        });
+
+        // 2. 말풍선 띄우기
+        const chatBox = document.getElementById('chatBox');
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message');
+        
+        // 내 아이디와 같으면 오른쪽, 다르면 왼쪽 정렬
+        if (data.id === myId) {
+            messageElement.classList.add('my-message');
+        } else {
+            messageElement.classList.add('other-message');
+        }
+        
+        messageElement.textContent = text;
+        chatBox.appendChild(messageElement);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    // 전송 버튼 누를 때 실행되는 로직
+    function sendMessage() {
+        const inputField = document.getElementById('messageInput');
+        const text = inputField.value.trim();
+        if (text === '') return;
+
+        // 서버로 내 ID와 메시지 텍스트를 묶어서 전송
+        ws.send(JSON.stringify({ id: myId, text: text }));
+        inputField.value = '';
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    }
+</script>
+
+</body>
+</html>
